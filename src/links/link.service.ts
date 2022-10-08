@@ -1,41 +1,66 @@
-import { Injectable } from '@nestjs/common';
-import { v4 as uuid } from 'uuid';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { LinkDto } from './link.dto';
-import { LinkData } from './link.controller';
+import { InjectRepository } from '@nestjs/typeorm';
+import { CategoryEntity, LinkEntity } from 'src/entities';
+import { DeleteResult, Repository } from 'typeorm';
+
+export interface LinkData
+  extends Pick<LinkEntity, 'linkId' | 'shortDescription' | 'url'> {
+  categoryId: string;
+}
 
 @Injectable()
 export class LinkService {
-  private links: LinkData[] = [];
+  constructor(
+    @InjectRepository(CategoryEntity)
+    private repoCat: Repository<CategoryEntity>,
+    @InjectRepository(LinkEntity) private repoLink: Repository<LinkEntity>,
+  ) {}
 
-  getAllLinks(): LinkData[] {
-    return this.links;
+  async getAllLinks(): Promise<LinkData[]> {
+    const results = await this.repoLink.find({
+      relations: ['categoryEntity'],
+    });
+
+    return results.map(
+      ({ linkId, shortDescription, url, categoryEntity: cat }) => ({
+        linkId,
+        shortDescription,
+        url,
+        categoryId: cat.categoryId,
+      }),
+    );
   }
 
-  getSingleLink(id: string): LinkData {
-    const link = this.links.find((link) => link.linkId === id);
-    return link;
+  async getSingleLink(id: string): Promise<LinkEntity> {
+    return this.repoLink.findOne({
+      where: { linkId: id },
+    });
   }
 
-  createLink(body: LinkDto): LinkData {
-    const linkId = uuid();
-    const newLink = { ...body, linkId };
-    this.links.push(newLink);
+  async createLink(body: LinkDto): Promise<LinkEntity> {
+    const relatedCategory = await this.repoCat.findOne({
+      where: {
+        categoryId: body.categoryId,
+      },
+    });
 
-    return newLink;
+    const createLink = this.repoLink.create({
+      categoryEntity: relatedCategory,
+      shortDescription: body.shortDescription,
+      url: body.url,
+    });
+
+    return this.repoLink.save(createLink);
   }
 
-  deleteLink(id: string): boolean {
-    const linkData = this.getSingleLink(id);
+  async deleteLink(id: string): Promise<DeleteResult> {
+    const result = await this.repoLink.delete({ linkId: id });
 
-    if (!!linkData) {
-      this.links = this.links.filter((link) => link.linkId !== id);
-      return true;
+    if (result.affected < 1) {
+      throw new HttpException('Note not found', HttpStatus.NOT_FOUND);
     }
 
-    return false;
-  }
-
-  deleteLinksByCategory(categoryId: string): void {
-    this.links = this.links.filter((link) => link.categoryId !== categoryId);
+    return result;
   }
 }

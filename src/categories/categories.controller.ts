@@ -9,30 +9,26 @@ import {
   Post,
 } from '@nestjs/common';
 import { CategoryDto } from './categories.dto';
-import { CategoriesService, Category } from './categories.service';
-import { LinkService } from 'src/links/link.service';
-import { NotesService } from 'src/notes/notes.service';
+import { CategoriesService } from './categories.service';
+import { CategoryEntity } from '../entities/category.entity';
+import { DeleteResult } from 'typeorm';
 
 @Controller('category')
 export class CategoriesController {
-  constructor(
-    private catSrvc: CategoriesService,
-    private linkSrvc: LinkService,
-    private noteSrvc: NotesService,
-  ) {}
+  constructor(private catSrvc: CategoriesService) {}
 
   @Get()
-  getAll(): Category[] {
-    return this.catSrvc.getAll();
+  async getAll(): Promise<CategoryEntity[]> {
+    return await this.catSrvc.getAll();
   }
 
   @Get(':id')
-  getSingleCategory(@Param('id') id: string): Category {
+  async getSingleCategory(@Param('id') id: string): Promise<CategoryEntity> {
     if (!id) {
       throw new NotFoundException('Category "id" not found');
     }
 
-    const category = this.catSrvc.getSingleCat(id);
+    const category = await this.catSrvc.getSingleCat(id);
 
     if (!category) {
       throw new NotFoundException('Category not found');
@@ -42,20 +38,13 @@ export class CategoriesController {
   }
 
   @Post()
-  create(@Body() newCategory: CategoryDto): Category {
-    const newCat = this.catSrvc.create(newCategory);
+  async create(@Body() newCategory: CategoryDto): Promise<CategoryEntity> {
+    const newCat = await this.catSrvc.create(newCategory);
     return newCat;
   }
 
   @Delete(':id')
-  @HttpCode(204)
-  delete(@Param('id') id: string): void {
-    const resultBoolean = this.catSrvc.delete(id);
-    resultBoolean && this.linkSrvc.deleteLinksByCategory(id);
-    this.noteSrvc.removeNoteByCategoryId(id);
-
-    if (!resultBoolean) {
-      throw new NotFoundException('Category not found');
-    }
+  async delete(@Param('id') id: string): Promise<DeleteResult> {
+    return this.catSrvc.delete(id);
   }
 }

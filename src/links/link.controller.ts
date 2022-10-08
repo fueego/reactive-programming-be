@@ -3,36 +3,31 @@ import {
   Controller,
   Delete,
   Get,
-  HttpCode,
   NotFoundException,
   Param,
   Post,
 } from '@nestjs/common';
 import { LinkDto } from './link.dto';
-import { LinkService } from './link.service';
-import { NotesService } from 'src/notes/notes.service';
-
-export interface LinkData
-  extends Pick<LinkDto, 'categoryId' | 'shortDescription' | 'url'> {
-  linkId?: string;
-}
+import { LinkData, LinkService } from './link.service';
+import { LinkEntity } from 'src/entities';
+import { DeleteResult } from 'typeorm';
 
 @Controller('link')
 export class LinkController {
-  constructor(private linkSrvc: LinkService, private noteSrvc: NotesService) {}
+  constructor(private linkSrvc: LinkService) {}
 
   @Get()
-  getAll(): LinkData[] {
+  getAll(): Promise<LinkData[]> {
     return this.linkSrvc.getAllLinks();
   }
 
   @Get(':id')
-  getSingle(@Param('id') id: string): LinkData {
+  async getSingle(@Param('id') id: string): Promise<LinkEntity> {
     if (!id) {
       throw new NotFoundException('Link "id" not found');
     }
 
-    const link = this.linkSrvc.getSingleLink(id);
+    const link = await this.linkSrvc.getSingleLink(id);
 
     if (!link) {
       throw new NotFoundException('Link not found');
@@ -42,19 +37,12 @@ export class LinkController {
   }
 
   @Post()
-  create(@Body() body: LinkDto): LinkData {
-    const linkData = this.linkSrvc.createLink(body);
-    return linkData;
+  async create(@Body() body: LinkDto): Promise<LinkEntity> {
+    return await this.linkSrvc.createLink(body);
   }
 
   @Delete(':id')
-  @HttpCode(204)
-  delete(@Param('id') id: string): void {
-    const linkToRemoveBoolean = this.linkSrvc.deleteLink(id);
-    this.noteSrvc.removeNoteByLinkId(id);
-
-    if (!linkToRemoveBoolean) {
-      throw new NotFoundException('Link not found');
-    }
+  async delete(@Param('id') id: string): Promise<DeleteResult> {
+    return await this.linkSrvc.deleteLink(id);
   }
 }

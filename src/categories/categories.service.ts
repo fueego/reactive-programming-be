@@ -1,41 +1,43 @@
-import { Injectable } from '@nestjs/common';
-import { v4 as uuid } from 'uuid';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DeleteResult, Repository } from 'typeorm';
 import { CategoryDto } from './categories.dto';
-
-export interface Category
-  extends Pick<CategoryDto, 'name' | 'description' | 'color'> {
-  categoryId: string;
-}
+import { CategoryEntity } from '../entities/category.entity';
 
 @Injectable()
 export class CategoriesService {
-  private categories: Category[] = [];
+  constructor(
+    @InjectRepository(CategoryEntity) private repo: Repository<CategoryEntity>,
+  ) {}
 
-  getAll(): Category[] {
-    return this.categories;
+  async getAll(): Promise<CategoryEntity[]> {
+    return this.repo.find();
   }
 
-  getSingleCat(id: string): Category {
-    const category = this.categories.find((cat) => cat.categoryId === id);
-    return category;
+  async getSingleCat(id: string): Promise<CategoryEntity> {
+    return this.repo.findOne({
+      where: {
+        categoryId: id,
+      },
+    });
   }
 
-  create(body: CategoryDto): Category {
-    const categoryId = uuid();
-    const newCategory = { categoryId, ...body };
-    this.categories.push(newCategory);
-
-    return newCategory;
+  async create(body: CategoryDto): Promise<CategoryEntity> {
+    const newCategory = this.repo.create({
+      name: body.name,
+      description: body.description,
+      color: body.color,
+    });
+    return this.repo.save(newCategory);
   }
 
-  delete(id: string): boolean {
-    const categoryToDelete = this.getSingleCat(id);
+  async delete(id: string): Promise<DeleteResult> {
+    const result = await this.repo.delete({ categoryId: id });
 
-    if (!!categoryToDelete) {
-      this.categories = this.categories.filter((cat) => cat.categoryId !== id);
-      return true;
+    if (result.affected < 1) {
+      throw new HttpException('Note not found', HttpStatus.NOT_FOUND);
     }
 
-    return false;
+    return result;
   }
 }

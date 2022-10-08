@@ -1,33 +1,25 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  Param,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post } from '@nestjs/common';
+import { NotesEntity } from 'src/entities';
+import { DeleteResult } from 'typeorm';
 import { NotesDto } from './notes.dto';
-import { Notes, NotesService } from './notes.service';
+import { NotesData, NotesService } from './notes.service';
 
 @Controller('notes')
 export class NotesController {
   constructor(private noteSrvc: NotesService) {}
 
   @Get(':id')
-  getNote(@Param('id') id: string): Notes {
-    return this.noteSrvc.findNote(id);
+  async getNote(@Param('id') linkId: string): Promise<NotesData> {
+    return this.noteSrvc.findNote(linkId);
   }
 
   @Post()
-  addNote(@Body() payload: NotesDto): Notes {
-    const newNote = this.noteSrvc.addNote(payload);
-    return newNote;
+  async addNote(@Body() payload: NotesDto): Promise<NotesData> {
+    return this.noteSrvc.addNote(payload);
   }
 
   @Delete(':id')
-  @HttpCode(204)
-  removeNote(@Param('id') id: string): void {
-    this.noteSrvc.removeNote(id);
+  async removeNote(@Param('id') id: string): Promise<DeleteResult> {
+    return this.noteSrvc.removeNote(id);
   }
 }

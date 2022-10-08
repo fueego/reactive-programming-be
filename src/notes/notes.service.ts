@@ -1,41 +1,62 @@
-import { Injectable } from '@nestjs/common';
-import { v4 as uuid } from 'uuid';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { LinkEntity, NotesEntity } from 'src/entities';
+import { DeleteResult, Repository } from 'typeorm';
 import { NotesDto } from './notes.dto';
 
-export interface Notes extends Pick<NotesDto, 'notes'> {
-  noteId?: string;
-  categoryId: string;
+export interface NotesData extends Pick<NotesEntity, 'notesId' | 'notes'> {
   linkId: string;
 }
 
 @Injectable()
 export class NotesService {
-  private notes: Notes[] = [];
+  constructor(
+    @InjectRepository(NotesEntity) private repoNotes: Repository<NotesEntity>,
+    @InjectRepository(LinkEntity) private repoLink: Repository<LinkEntity>,
+  ) {}
 
-  addNote(note: Notes): Notes {
-    const noteId = uuid();
-    const newNote = {
-      ...note,
-      noteId,
+  async addNote(note: NotesDto): Promise<NotesData> {
+    const link = await this.repoLink.findOneBy({ linkId: note.linkId });
+    if (!link) {
+      throw new HttpException('Link not found', HttpStatus.NOT_FOUND);
+    }
+
+    const createNote = this.repoNotes.create({ notes: note.notes, link: link });
+    const notes = await this.repoNotes.save(createNote);
+
+    return {
+      notesId: notes.notesId,
+      notes: notes.notes,
+      linkId: link.linkId,
     };
-    this.notes.push(newNote);
-
-    return newNote;
   }
 
-  findNote(linkId: string): Notes | undefined {
-    return this.notes.find((note) => note.linkId === linkId);
+  async findNote(linkId: string): Promise<NotesData> {
+    const note = await this.repoNotes.findOne({
+      relations: ['link'],
+      where: {
+        link: { linkId },
+      },
+    });
+
+    if (!note) {
+      throw new HttpException('Note not found', HttpStatus.NOT_FOUND);
+    }
+
+    return {
+      notesId: note.notesId,
+      notes: note.notes,
+      linkId: note.link.linkId,
+    };
   }
 
-  removeNote(noteId: string): void {
-    this.notes = this.notes.filter((note) => note.noteId !== noteId);
-  }
+  async removeNote(notesId: string): Promise<DeleteResult> {
+    const result = await this.repoNotes.delete({ notesId });
 
-  removeNoteByLinkId(linkId: string): void {
-    this.notes = this.notes.filter((note) => note.linkId !== linkId);
-  }
+    if (result.affected < 1) {
+      throw new HttpException('Note not found', HttpStatus.NOT_FOUND);
+    }
 
-  removeNoteByCategoryId(catId: string): void {
-    this.notes = this.notes.filter((note) => note.categoryId !== catId);
+    return result;
   }
 }

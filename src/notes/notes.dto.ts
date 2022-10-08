@@ -5,8 +5,5 @@ export class NotesDto {
   notes: string;
 
   @IsNotEmpty()
-  categoryId: string;
-
-  @IsNotEmpty()
   linkId: string;
 }
