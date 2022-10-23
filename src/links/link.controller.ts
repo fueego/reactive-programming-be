@@ -9,8 +9,8 @@ import {
 } from '@nestjs/common';
 import { LinkDto } from './link.dto';
 import { LinkData, LinkService } from './link.service';
-import { LinkEntity } from 'src/entities';
 import { DeleteResult } from 'typeorm';
+import { LinkEntity } from 'src/entities/link.entity';
 
 @Controller('link')
 export class LinkController {
